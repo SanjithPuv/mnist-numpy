@@ -1,0 +1,107 @@
+{
+  "test_loss": 0.10427880043983459,
+  "test_accuracy": 0.9708,
+  "test_count": 10000,
+  "error_examples": [
+    {
+      "index": 233,
+      "actual": 8,
+      "predicted": 7
+    },
+    {
+      "index": 247,
+      "actual": 4,
+      "predicted": 2
+    },
+    {
+      "index": 259,
+      "actual": 6,
+      "predicted": 0
+    },
+    {
+      "index": 290,
+      "actual": 8,
+      "predicted": 4
+    },
+    {
+      "index": 320,
+      "actual": 9,
+      "predicted": 7
+    },
+    {
+      "index": 321,
+      "actual": 2,
+      "predicted": 7
+    },
+    {
+      "index": 340,
+      "actual": 5,
+      "predicted": 3
+    },
+    {
+      "index": 435,
+      "actual": 8,
+      "predicted": 7
+    },
+    {
+      "index": 445,
+      "actual": 6,
+      "predicted": 0
+    },
+    {
+      "index": 495,
+      "actual": 8,
+      "predicted": 2
+    },
+    {
+      "index": 582,
+      "actual": 8,
+      "predicted": 2
+    },
+    {
+      "index": 591,
+      "actual": 8,
+      "predicted": 3
+    },
+    {
+      "index": 659,
+      "actual": 2,
+      "predicted": 8
+    },
+    {
+      "index": 684,
+      "actual": 7,
+      "predicted": 3
+    },
+    {
+      "index": 691,
+      "actual": 8,
+      "predicted": 4
+    },
+    {
+      "index": 707,
+      "actual": 4,
+      "predicted": 9
+    },
+    {
+      "index": 720,
+      "actual": 5,
+      "predicted": 8
+    },
+    {
+      "index": 740,
+      "actual": 4,
+      "predicted": 9
+    },
+    {
+      "index": 844,
+      "actual": 8,
+      "predicted": 7
+    },
+    {
+      "index": 846,
+      "actual": 7,
+      "predicted": 9
+    }
+  ]
+}
