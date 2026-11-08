@@ -39,16 +39,28 @@ On Windows PowerShell set `$env:OPENBLAS_NUM_THREADS="1"` before running Python.
 
 Use `--output results_experiment` to preserve the supplied run when experimenting. Evaluation also has `--output`; prediction takes an output image filename. `--help` shows each script's options. Only the training loader's seed affects the train/validation split; test data remains unchanged.
 
+## Predict a digit from your own image
+
+After installing the dependencies and running `python train.py` to create `results/model.npz`, run:
+
+```bash
+python predict.py --image path/to/my_digit.png
+```
+
+Use a PNG or JPEG of one digit from 0 to 9, with clear contrast and a plain margin around it. Crop away other writing and shadows. The script crops, resizes, and centers the digit for the model, then prints its prediction and model score. A high score does not guarantee the prediction is correct.
+
+Use `--model path/to/model.npz` if your trained weights are saved elsewhere. Run `python predict.py` without `--image` for the original MNIST demo.
+
 ## File map
 
 | File | Purpose |
 |---|---|
-| requirements.txt | NumPy and Matplotlib dependencies |
+| requirements.txt | NumPy, Matplotlib, and Pillow dependencies |
 | data.py | Download/cache, IDX parsing, normalization, fixed split |
 | network.py | Initialization, forward, stable softmax/loss, gradients, SGD update, save/load, metrics |
 | train.py | Shuffled mini-batches, metrics, validation checkpoint selection |
 | evaluate.py | Held-out metrics, confusion matrix, examples and mistakes |
-| predict.py | Saved-model inference on 20 test images unused in training |
+| predict.py | Classify a local image or run the MNIST prediction demo |
 | plots.py | Sample grids, learning curves, confusion matrix |
 | verify.py | float64 finite-difference check, shapes, stability, reload check |
 | overfit.py | Memorize 32 real training images |
