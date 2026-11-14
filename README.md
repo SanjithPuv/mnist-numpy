@@ -25,7 +25,7 @@ The first run downloads Google's pretrained Hand Landmarker model into `models/h
 
 ## How camera recognition works
 
-OpenCV reads the webcam. [MediaPipe Hand Landmarker](https://developers.google.com/mediapipe/solutions/vision/hand_landmarker) estimates 21 landmarks per hand. The program uses joint angles and distances to estimate which fingers are extended, adds their counts, and requires a consistent total for 0.25 seconds before displaying it.
+OpenCV reads the webcam. [MediaPipe Hand Landmarker](https://developers.google.com/mediapipe/solutions/vision/hand_landmarker) estimates 21 landmarks per hand. The program uses joint angles and distances to estimate which fingers are extended, adds their counts, and smooths the total with a majority vote over the last 0.3 seconds. Slightly curved fingers can still count as raised, and visible fingertip positions provide a fallback when estimated depth is noisy. The preview shows T/I/M/R/P for thumb, index, middle, ring, and pinky; 1 means raised and 0 means folded.
 
 This is **finger counting**, not ASL numeral recognition. The counting rules are a heuristic, so bent fingers, overlapping hands, sideways views, or poor lighting can give incorrect results. Camera accuracy has not been measured. The original MNIST accuracy below applies only to handwritten digits.
 
