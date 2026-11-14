@@ -5,6 +5,7 @@ Run:     python camera.py
 Requires Python 3.10-3.12. The first run downloads Google's hand model.
 Camera frames are processed locally and are never recorded or uploaded.
 """
+from collections import deque
 import argparse
 import math
 from pathlib import Path
@@ -35,48 +36,73 @@ def angle(a, b, c):
     return math.degrees(math.acos(cosine))
 
 
-def count_fingers(points):
-    """Heuristic on 21 world landmarks, ordered thumb through pinky.
+def count_fingers(points, image_points=None):
+    """Count relaxed raised fingers using palm-relative geometry.
 
-    Straight joints plus fingertip distance reject folded fingers. The thumb
-    also has to extend away from the index knuckle. Best with palms facing
-    the camera and fingers clearly separated; this is not a trained numeral
-    classifier and does not implement sign language.
+    World coordinates supply joint geometry. Aspect-corrected image points
+    supply a second cue when estimated depth bends an otherwise visible finger.
+    No requirement that every joint be nearly perfectly straight.
     """
-    if len(points) != 21:
+    if len(points) != 21 or (image_points is not None and len(image_points) != 21):
         raise ValueError('Expected 21 hand landmarks')
-    palm = max(distance(points[0], points[9]), 1e-9)
-    thumb = (angle(points[1], points[2], points[3]) > 145
-             and angle(points[2], points[3], points[4]) > 150
-             and distance(points[4], points[5]) > 0.65 * palm)
+    screen = image_points if image_points is not None else points
+    axis = [screen[9][i] - screen[0][i] for i in range(2)]
+    size = math.hypot(*axis)
+    if size < 1e-9:
+        return 0, [False] * 5
+    axis = [v / size for v in axis]
+
+    def projection(a, b):
+        return sum((screen[a][i] - screen[b][i]) * axis[i] for i in range(2))
+
+    # A thumb must open away from the palm, rather than just straighten
+    # across a closed fist. Palm width normalizes for distance to camera.
+    width = max(distance(screen[5], screen[17]), 1e-9)
+    thumb = (angle(screen[1], screen[2], screen[4]) > 135
+             and distance(screen[4], screen[17]) > 1.15 * width
+             and distance(screen[4], screen[5]) > 0.4 * width)
     extended = [thumb]
     for base in (5, 9, 13, 17):
-        extended.append(
-            angle(points[base], points[base+1], points[base+2]) > 155
-            and angle(points[base+1], points[base+2], points[base+3]) > 150
-            and distance(points[base+3], points[0])
-            > distance(points[base+1], points[0]) * 1.12
-        )
+        pip, dip, tip = base+1, base+2, base+3
+        length = sum(distance(points[j], points[j+1]) for j in range(base, tip))
+        reach = distance(points[base], points[tip]) / max(length, 1e-9)
+        # One tolerant PIP test replaces two strict PIP/DIP tests. A relaxed
+        # fingertip can curve without making the entire finger count as down.
+        straight = (angle(points[base], points[pip], points[dip]) > 135
+                    and reach > 0.78
+                    and distance(points[tip], points[0])
+                    > distance(points[pip], points[0]) * 1.02)
+        projected = (projection(tip, pip) > 0.12 * size
+                     and projection(tip, base) > 0.35 * size
+                     and angle(screen[base], screen[pip], screen[tip]) > 140)
+        extended.append(bool(straight or projected))
     return sum(extended), extended
 
 
 class StableCount:
-    """Require a consistent value for a short time; clear immediately on loss."""
-    def __init__(self, seconds=0.25):
+    """Vote across a short time window instead of restarting on every wobble."""
+    def __init__(self, seconds=0.3):
         self.seconds = seconds
-        self.candidate = None
-        self.since = 0.0
+        self.samples = deque()
         self.value = None
+        self.started = None
 
     def update(self, value, now):
         if value is None:
-            self.candidate = self.value = None
+            self.samples.clear()
+            self.value = self.started = None
             return None
-        if value != self.candidate:
-            self.candidate, self.since = value, now
-            self.value = None
-        if now - self.since >= self.seconds:
-            self.value = value
+        if self.started is None:
+            self.started = now
+        self.samples.append((now, value))
+        while self.samples and now - self.samples[0][0] > self.seconds:
+            self.samples.popleft()
+        votes = {}
+        for _, sample in self.samples:
+            votes[sample] = votes.get(sample, 0) + 1
+        winner = max(votes, key=votes.get)
+        if now - self.started >= 0.12 and votes[winner] / len(self.samples) >= 0.6:
+            self.value = winner
         return self.value
 
 
@@ -115,9 +141,9 @@ def main():
         base_options=mp.tasks.BaseOptions(model_asset_path=str(args.model)),
         running_mode=mp.tasks.vision.RunningMode.VIDEO,
         num_hands=2,
-        min_hand_detection_confidence=0.6,
-        min_hand_presence_confidence=0.6,
-        min_tracking_confidence=0.6,
+        min_hand_detection_confidence=0.5,
+        min_hand_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
     )
     camera = None
     title = 'Hand numbers | Q or Esc to quit'
@@ -147,14 +173,20 @@ def main():
                 previous_timestamp = timestamp
                 result = detector.detect_for_video(image, timestamp)
                 total = 0
+                details = []
                 height, width = frame.shape[:2]
                 for landmarks, world in zip(result.hand_landmarks, result.hand_world_landmarks):
-                    count, extended = count_fingers([(p.x, p.y, p.z) for p in world])
+                    count, extended = count_fingers(
+                        [(p.x, p.y, p.z) for p in world],
+                        [(p.x * width, p.y * height) for p in landmarks],
+                    )
                     total += count
+                    names = ("T", "I", "M", "R", "P")
+                    details.append(" ".join(f"{name}:{int(up)}" for name, up in zip(names, extended)))
                     pixels = [(int(p.x * width), int(p.y * height)) for p in landmarks]
                     for a, b in CONNECTIONS:
                         cv2.line(frame, pixels[a], pixels[b], (110, 220, 130), 2)
-                    for i, point in enumerate(pixels):
+                    for point in pixels:
                         cv2.circle(frame, point, 4, (245, 210, 90), -1)
                     for finger, tip in enumerate((4, 8, 12, 16, 20)):
                         color = (80, 255, 100) if extended[finger] else (70, 70, 240)
@@ -169,11 +201,14 @@ def main():
                     label = 'Hold steady...'
                 else:
                     label = f'Number: {value}'
-                cv2.rectangle(frame, (0, 0), (width, 95), (25, 25, 30), -1)
+                cv2.rectangle(frame, (0, 0), (width, 125), (25, 25, 30), -1)
                 cv2.putText(frame, label, (20, 42), cv2.FONT_HERSHEY_SIMPLEX,
                             1.1, (100, 255, 150), 2)
                 cv2.putText(frame, 'Palms toward camera | Q / Esc: quit', (20, 77),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (225, 225, 225), 1)
+                cv2.putText(frame, ' | '.join(details) or 'Move your hand into view',
+                            (20, 108), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                            (225, 225, 225), 1)
                 cv2.imshow(title, frame)
                 if cv2.waitKey(1) & 0xFF in (ord('q'), ord('Q'), 27):
                     break
