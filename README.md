@@ -1,4 +1,39 @@
-# MNIST from scratch in NumPy
+# Live Hand Number Recognition
+
+Recognize the number of raised fingers using your MacBook camera. The live preview displays a total from **0 to 10** across up to two hands, with hand landmarks and colored fingertips. A closed fist counts as zero; an empty frame displays "No hand detected."
+
+## Run the camera on macOS
+
+Use Python 3.10–3.12 (Python 3.12 recommended). In Terminal:
+
+```bash
+git clone https://github.com/SanjithPuv/mnist-numpy.git
+cd mnist-numpy
+python3.12 -m venv .venv-camera
+source .venv-camera/bin/activate
+python -m pip install mediapipe opencv-python
+python camera.py
+```
+
+If you already cloned the repository, run `git pull` inside it, then follow the environment/install/run steps above. If your `python3` is already version 3.10–3.12, you can use it instead of `python3.12`.
+
+Allow the camera permission when macOS asks. If needed, enable Terminal (or the editor running Python) under **System Settings → Privacy & Security → Camera**, then restart that app. Close FaceTime or other apps using the camera. If the wrong camera opens, try `python camera.py --camera 1`.
+
+Face your palms toward the camera, keep fingers separated, and use good lighting. Show 0–5 fingers on one hand or combine both hands for 0–10. Hold each pose briefly for the total to stabilize. Press **Q**, **Esc**, or close the preview window to stop and release the camera.
+
+The first run downloads Google's pretrained Hand Landmarker model into `models/hand_landmarker.task`. Later runs reuse the cached model. Frames are processed locally, without saving or uploading video. No MNIST training or weights are needed for camera mode.
+
+## How camera recognition works
+
+OpenCV reads the webcam. [MediaPipe Hand Landmarker](https://developers.google.com/mediapipe/solutions/vision/hand_landmarker) estimates 21 landmarks per hand. The program uses joint angles and distances to estimate which fingers are extended, adds their counts, and requires a consistent total for 0.25 seconds before displaying it.
+
+This is **finger counting**, not ASL numeral recognition. The counting rules are a heuristic, so bent fingers, overlapping hands, sideways views, or poor lighting can give incorrect results. Camera accuracy has not been measured. The original MNIST accuracy below applies only to handwritten digits.
+
+## Original handwritten digit project
+
+The earlier image classifier and its tutorial remain available as a separate learning example. The webcam feature uses a pretrained hand model; it does not use the NumPy digit network.
+
+### MNIST from scratch in NumPy
 
 A readable 784 → 128 (ReLU) → 10 neural network with manual backpropagation and mini-batch SGD. No automatic differentiation or machine learning framework. Start with this README, then follow `TUTORIAL.md` beside the source.
 
